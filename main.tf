@@ -19,11 +19,11 @@ resource "aws_s3_bucket" "main" {
 }
 
 data "aws_route53_zone" "main" {
-  domain = "${var.domain}"
+  name = "${var.domain}"
 }
 
 resource "aws_acm_certificate" "main" {
-  domain      = "${var.domain}"
+  domain_name = "${var.domain}"
   subject_alternative_names = "${var.domain_sans}"
 
   // This module is only DNS validation for now as we can do it all in on apply
@@ -37,12 +37,12 @@ resource "aws_acm_certificate" "main" {
 resource "aws_route53_record" "main" {
   name    = "${aws_acm_certificate.main.domain_validation_options.0.resource_record_name}"
   type    = "${aws_acm_certificate.main.domain_validation_options.0.resource_record_type}"
-  zone_id = "${data.aws_route53_zone.main.id}"
+  zone_id = "${data.aws_route53_zone.main.zone_id}"
   records = ["${aws_acm_certificate.main.domain_validation_options.0.resource_record_value}"]
   ttl     = 60
 }
 
-resource "aws_acn_certificate_validation" "main" {
+resource "aws_acm_certificate_validation" "main" {
   certificate_arn = "${aws_acm_certificate.main.arn}"
   validation_record_fqdns = [
     "${aws_route53_record.main.fqdn}"
@@ -64,6 +64,8 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 
+  aliases = "${var.domain_sans}"
+
   default_cache_behavior {
     allowed_methods = [
       "GET",
@@ -75,14 +77,27 @@ resource "aws_cloudfront_distribution" "main" {
       "HEAD",
     ]
 
-    target_origin_id     = "S3-${aws_s3_bucket.main.id}"
-    view_protocol_policy = "redirect-to-https"
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    target_origin_id       = "S3-${aws_s3_bucket.main.id}"
+    viewer_protocol_policy = "redirect-to-https"
 
     // These are the TTL defaults as specified at
     // https://www.terraform.io/docs/providers/aws/r/cloudfront_distribution.html
     min_ttl                = 0
     default_ttl            = 3600
     max_ttl                = 86400
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
   }
 
   // See price class information here:
