@@ -24,9 +24,6 @@ data "aws_route53_zone" "main" {
 
 resource "aws_acm_certificate" "main" {
   domain_name = "${var.domain}"
-  subject_alternative_names = "${var.domain_sans}"
-
-  // This module is only DNS validation for now as we can do it all in on apply
   validation_method = "DNS"
 
   lifecycle {
@@ -34,16 +31,18 @@ resource "aws_acm_certificate" "main" {
   }
 }
 
-resource "aws_route53_record" "main" {
+resource "aws_route53_record" "validation" {
   name    = "${aws_acm_certificate.main.domain_validation_options.0.resource_record_name}"
   type    = "${aws_acm_certificate.main.domain_validation_options.0.resource_record_type}"
-  zone_id = "${data.aws_route53_zone.main.zone_id}"
   records = ["${aws_acm_certificate.main.domain_validation_options.0.resource_record_value}"]
+
+  zone_id = "${data.aws_route53_zone.main.zone_id}"
   ttl     = 60
 }
 
 resource "aws_acm_certificate_validation" "main" {
   certificate_arn = "${aws_acm_certificate.main.arn}"
+
   validation_record_fqdns = [
     "${aws_route53_record.main.fqdn}"
   ]
@@ -63,8 +62,6 @@ resource "aws_cloudfront_distribution" "main" {
       ]
     }
   }
-
-  aliases = "${var.domain_sans}"
 
   default_cache_behavior {
     allowed_methods = [
@@ -106,7 +103,20 @@ resource "aws_cloudfront_distribution" "main" {
   enabled = true
 
   viewer_certificate {
-    acm_certificate_arn = "${aws_acm_certificate.main.arn}"
+    acm_certificate_arn      = "${aws_acm_certificate.main.arn}"
     minimum_protocol_version = "${var.minimum_tls_protocol}"
+    ssl_support_method       = "sni-only"
+  }
+}
+
+resource "aws_route53_record" "main" {
+  name    = "${var.domain}"
+  zone_id = "${data.aws_route53_zone.main.zone_id}"
+  type    = "A"
+
+  alias {
+    evaluate_target_health = false
+    name    = "${aws_cloudfront_distribution.main.domain_name}"
+    zone_id = "${aws_cloudfront_distribution.main.hosted_zone_id}"
   }
 }

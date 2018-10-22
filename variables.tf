@@ -1,8 +1,4 @@
 variable "domain" { }
-variable "domain_sans" {
-  type = "list"
-  default = []
-}
 
 // PriceClass_100 is the lowest tier & only covers North America & Europe
 variable "price_class" {
