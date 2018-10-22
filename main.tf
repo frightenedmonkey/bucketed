@@ -65,10 +65,10 @@ resource "aws_cloudfront_distribution" "main" {
         "TLSv1.2",
       ]
     }
-  }
 
-  s3_origin_config {
-    origin_access_identity = "${aws_cloudfront_origin_access_identity.main.cloudfront_access_identity_path}"
+    s3_origin_config {
+      origin_access_identity = "${aws_cloudfront_origin_access_identity.main.cloudfront_access_identity_path}"
+    }
   }
 
   default_cache_behavior {
