@@ -25,3 +25,10 @@ This module manages both the s3 bucket & the cloudfront/acm stuff. That's probab
 a bit more than is ideal. Really, the bucket should be a separate module that you
 can then inject into the cloudfront/acm stuff. With that said, it's a simple cookie
 cutter type thing, so it's probably not that big of a deal.
+
+This module will not restrict access to the underlying s3 bucket. While that would
+be nice, there's a caveat around setting up a Cloudfront distribution specifically
+as fronting an S3 bucket when you want to able to have cloudfront point to pretty
+URIs like foo.com/bar/baz without having to specify that the target has an index.html
+(as in foo.com/bar/baz/index.html). We have to use the public website endpoint
+for the s3 bucket, and then set it as public read.
