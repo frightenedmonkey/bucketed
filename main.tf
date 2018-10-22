@@ -48,6 +48,10 @@ resource "aws_acm_certificate_validation" "main" {
   ]
 }
 
+resource "aws_cloudfront_origin_access_identity" "main" {
+  comment = "For domain ${var.domain}"
+}
+
 resource "aws_cloudfront_distribution" "main" {
   origin {
     domain_name = "${aws_s3_bucket.main.bucket_domain_name}"
@@ -61,6 +65,10 @@ resource "aws_cloudfront_distribution" "main" {
         "TLSv1.2",
       ]
     }
+  }
+
+  s3_origin_config {
+    origin_access_identity = "${aws_cloudfront_origin_access_identity.main.cloudfront_access_identity_path}"
   }
 
   default_cache_behavior {
@@ -119,4 +127,44 @@ resource "aws_route53_record" "main" {
     name    = "${aws_cloudfront_distribution.main.domain_name}"
     zone_id = "${aws_cloudfront_distribution.main.hosted_zone_id}"
   }
+}
+
+data "aws_iam_policy_document" "cf_access" {
+  statement {
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = [
+      "${aws_s3_bucket.main.arn}/*",
+    ]
+
+    principals {
+      type = "AWS"
+      identifiers = [
+        "${aws_cloudfront_origin_access_identity.main.iam_arn}",
+      ]
+    }
+  }
+
+  statement {
+    actions = [
+      "s3:ListBucket",
+    ]
+
+    resources = [
+      "${aws_s3_bucket.main.arn}",
+    ]
+
+    principals {
+      type = "AWS"
+      identifiers = [
+        "${aws_cloudfront_origin_access_identity.main.iam_arn}",
+      ]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "main" {
+  bucket = "${aws_s3_bucket.main.id}"
+  policy = "${data.aws_iam_policy_document.main.json}"
 }
