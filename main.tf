@@ -108,6 +108,10 @@ resource "aws_cloudfront_distribution" "main" {
     max_ttl                = 86400
   }
 
+  aliases = [
+    "${var.domain}"
+  ]
+
   restrictions {
     geo_restriction {
       restriction_type = "none"
